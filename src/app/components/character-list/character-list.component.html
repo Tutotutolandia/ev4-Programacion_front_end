@@ -1,0 +1,50 @@
+<div class="character-list">
+  <h1>Lista de Personajes</h1>
+  
+  <div class="action-buttons">
+    <button routerLink="/crear" class="create-btn">Crear Nuevo Personaje</button>
+    <button routerLink="/api-characters" class="api-btn">🌌 Importar de API</button>
+  </div>
+  
+  <div class="characters-grid" *ngIf="characters.length > 0; else noCharacters">
+    <div class="character-card" *ngFor="let character of characters">
+      <img [src]="character.imageUrl || 'https://via.placeholder.com/150'" [alt]="character.name" />
+      <h3>{{ character.name }}</h3>
+      <p><strong>Clase:</strong> {{ character.class }}</p>
+      <p><strong>Nivel:</strong> {{ character.level }}</p>
+      <div class="skills" *ngIf="character.skills.length > 0">
+        <strong>Habilidades:</strong>
+        <div class="skills-container">
+          <div class="skill" 
+               *ngFor="let skill of character.skills" 
+               [attr.data-element]="skill.elementType"
+               [title]="getSkillTooltip(skill)"
+               class="skill-tooltip">
+            <span class="skill-name">{{ skill.name }}</span>
+            <span class="skill-element" [attr.data-element]="skill.elementType">{{ skill.elementType }}</span>
+            <div class="skill-details">
+              <span class="mana-cost">{{ skill.manaCost }} MP</span>
+              <span class="cooldown">{{ skill.cooldown }}s</span>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button (click)="editCharacter(character.id)">Editar</button>
+        <button (click)="deleteCharacter(character.id)" class="delete-btn">Eliminar</button>
+      </div>
+    </div>
+  </div>
+  
+  <ng-template #noCharacters>
+    <div class="no-characters">
+      <div class="no-characters-icon">🎭</div>
+      <h3>No hay personajes creados</h3>
+      <p>¡Crea tu primer personaje o importa algunos desde la API!</p>
+      <div class="no-characters-actions">
+        <button routerLink="/crear" class="create-btn-alt">Crear Personaje</button>
+        <button routerLink="/api-characters" class="api-btn-alt">Explorar API</button>
+      </div>
+    </div>
+  </ng-template>
+</div>

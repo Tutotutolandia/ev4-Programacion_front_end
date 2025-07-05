@@ -1,0 +1,174 @@
+<div class="api-characters">
+  <div class="header">
+    <h1>🌌 Importar Personajes de APIs</h1>
+    <p class="subtitle">Explora personajes de múltiples series y animes</p>
+  </div>
+
+  <!-- Selector de fuentes -->
+  <div class="sources-section">
+    <h3>📡 Selecciona las fuentes de datos:</h3>
+    <div class="sources-grid">
+      <div 
+        *ngFor="let source of apiSources" 
+        class="source-card"
+        [class.selected]="selectedSources.includes(source.id)"
+        (click)="onSourceToggle(source.id)"
+      >
+        <div class="source-icon">{{ source.icon }}</div>
+        <div class="source-info">
+          <h4>{{ source.name }}</h4>
+          <p>{{ source.description }}</p>
+        </div>
+        <div class="source-toggle">
+          <input 
+            type="checkbox" 
+            [checked]="selectedSources.includes(source.id)"
+            (change)="onSourceToggle(source.id)"
+          />
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Barra de búsqueda -->
+  <div class="search-section">
+    <div class="search-bar">
+      <input 
+        type="text" 
+        [(ngModel)]="searchTerm" 
+        (keyup.enter)="searchCharacters()"
+        placeholder="Buscar personajes por nombre..."
+        class="search-input"
+      />
+      <button (click)="searchCharacters()" class="search-btn" [disabled]="loading">
+        🔍 Buscar
+      </button>
+      <button (click)="clearSearch()" class="clear-btn" *ngIf="searchMode">
+        ✕ Limpiar
+      </button>
+    </div>
+    <p class="search-info" *ngIf="selectedSources.length > 0">
+      Buscando en: {{ selectedSources.length }} fuente(s) seleccionada(s)
+    </p>
+  </div>
+
+  <!-- Indicador de carga -->
+  <div *ngIf="loading" class="loading">
+    <div class="spinner"></div>
+    <p>Cargando personajes desde las APIs...</p>
+  </div>
+
+  <!-- Manejo de errores -->
+  <div *ngIf="error && !loading" class="error-message">
+    <div class="error-icon">⚠️</div>
+    <div class="error-content">
+      <h3>Error al cargar datos</h3>
+      <p>{{ error }}</p>
+      <button (click)="loadCharacters()" class="retry-btn">🔄 Reintentar</button>
+    </div>
+  </div>
+
+  <!-- Lista de personajes -->
+  <div *ngIf="!loading && !error && apiCharacters.length > 0" class="characters-grid">
+    <div class="character-card" *ngFor="let character of apiCharacters">
+      <div class="character-image">
+        <img [src]="character.image" [alt]="character.name" />
+        <div class="series-badge" [style.background-color]="getSeriesColor(character.series)">
+          {{ getSeriesIcon(character.series) }} {{ character.series }}
+        </div>
+        <div class="status-badge" *ngIf="character.status" 
+             [style.background-color]="character.status === 'Alive' ? '#10b981' : character.status === 'Dead' ? '#ef4444' : '#6b7280'">
+          {{ character.status === 'Alive' ? 'Vivo' : character.status === 'Dead' ? 'Muerto' : 'Desconocido' }}
+        </div>
+      </div>
+      
+      <div class="character-info">
+        <h3>{{ character.name }}</h3>
+        <div class="character-details">
+          <p><strong>Serie:</strong> {{ character.series }}</p>
+          <p><strong>Tipo:</strong> {{ character.type }}</p>
+          <p><strong>Descripción:</strong> {{ character.description }}</p>
+          
+          <div class="abilities" *ngIf="character.abilities.length > 0">
+            <strong>Habilidades:</strong>
+            <div class="abilities-list">
+              <span 
+                *ngFor="let ability of character.abilities.slice(0, 3)" 
+                class="ability-tag"
+              >
+                {{ ability }}
+              </span>
+            </div>
+          </div>
+          
+          <div class="stats" *ngIf="character.stats">
+            <strong>Estadísticas:</strong>
+            <div class="stats-grid">
+              <div class="stat" *ngIf="character.stats.power">
+                <span class="stat-label">Poder:</span>
+                <div class="stat-bar">
+                  <div class="stat-fill" [style.width.%]="character.stats.power"></div>
+                </div>
+                <span class="stat-value">{{ character.stats.power }}</span>
+              </div>
+              <div class="stat" *ngIf="character.stats.speed">
+                <span class="stat-label">Velocidad:</span>
+                <div class="stat-bar">
+                  <div class="stat-fill" [style.width.%]="character.stats.speed"></div>
+                </div>
+                <span class="stat-value">{{ character.stats.speed }}</span>
+              </div>
+              <div class="stat" *ngIf="character.stats.defense">
+                <span class="stat-label">Defensa:</span>
+                <div class="stat-bar">
+                  <div class="stat-fill" [style.width.%]="character.stats.defense"></div>
+                </div>
+                <span class="stat-value">{{ character.stats.defense }}</span>
+              </div>
+              <div class="stat" *ngIf="character.stats.intelligence">
+                <span class="stat-label">Inteligencia:</span>
+                <div class="stat-bar">
+                  <div class="stat-fill" [style.width.%]="character.stats.intelligence"></div>
+                </div>
+                <span class="stat-value">{{ character.stats.intelligence }}</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      
+      <div class="character-actions">
+        <button (click)="importCharacter(character)" class="import-btn">
+          ⬇️ Importar Personaje
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Sin resultados -->
+  <div *ngIf="!loading && !error && apiCharacters.length === 0" class="no-results">
+    <div class="no-results-icon">🔍</div>
+    <h3>No se encontraron personajes</h3>
+    <p *ngIf="searchMode">Intenta con otro término de búsqueda</p>
+    <p *ngIf="!searchMode && selectedSources.length === 0">Selecciona al menos una fuente de datos</p>
+    <p *ngIf="!searchMode && selectedSources.length > 0">No hay personajes disponibles en este momento</p>
+  </div>
+
+  <!-- Paginación -->
+  <div *ngIf="!loading && !error && apiCharacters.length > 0 && !searchMode" class="pagination">
+    <button (click)="prevPage()" [disabled]="currentPage <= 1" class="page-btn">
+      ← Anterior
+    </button>
+    <span class="page-info">Página {{ currentPage }}</span>
+    <button (click)="nextPage()" class="page-btn">
+      Siguiente →
+    </button>
+  </div>
+
+  <!-- Botón para volver -->
+  <div class="back-section">
+    <button routerLink="/" class="back-btn">
+      ← Volver a Mis Personajes
+    </button>
+  </div>
+</div>

@@ -1,0 +1,121 @@
+<div class="character-form">
+  <h2>{{ editing ? 'Editar' : 'Crear' }} Personaje</h2>
+  <form (ngSubmit)="saveCharacter()">
+    <label>Nombre:</label>
+    <input [(ngModel)]="character.name" name="name" required />
+    
+    <label>Clase:</label>
+    <select [(ngModel)]="character.class" name="class" required class="class-select">
+      <option value="">Selecciona una clase</option>
+      <option *ngFor="let characterClass of characterClasses" [value]="characterClass">{{ characterClass }}</option>
+    </select>
+    
+    <label>Nivel:</label>
+    <input type="number" [(ngModel)]="character.level" name="level" min="1" required />
+    
+    <div class="image-section">
+      <label>Imagen del Personaje:</label>
+      <div class="image-options">
+        <div class="image-option">
+          <input type="radio" id="url-option" name="imageOption" value="url" 
+                 [(ngModel)]="imageOption" (change)="onImageOptionChange()" />
+          <label for="url-option" class="radio-label">URL de imagen</label>
+        </div>
+        <div class="image-option">
+          <input type="radio" id="file-option" name="imageOption" value="file" 
+                 [(ngModel)]="imageOption" (change)="onImageOptionChange()" />
+          <label for="file-option" class="radio-label">Subir desde dispositivo</label>
+        </div>
+      </div>
+      
+      <div *ngIf="imageOption === 'url'" class="url-input">
+        <input [(ngModel)]="character.imageUrl" name="imageUrl" 
+               (blur)="onImageUrlChange()"
+               placeholder="https://ejemplo.com/imagen.jpg" />
+        <div *ngIf="validatingUrl" class="validating-url">
+          <div class="spinner-small"></div>
+          <span>Validando imagen...</span>
+        </div>
+      </div>
+      
+      <div *ngIf="imageOption === 'file'" class="file-input">
+        <input type="file" #fileInput (change)="onFileSelected($event)" 
+               accept="image/*" class="file-input-hidden" />
+        <button type="button" (click)="fileInput.click()" class="file-select-btn">
+          <span class="file-icon">📁</span>
+          {{ selectedFileName || 'Seleccionar imagen' }}
+        </button>
+        <p class="file-help">Formatos soportados: JPG, PNG, GIF, WebP (máx. 5MB)</p>
+      </div>
+      
+      <div *ngIf="character.imageUrl" class="image-preview">
+        <img [src]="character.imageUrl" [alt]="character.name || 'Vista previa'" />
+        <button type="button" (click)="removeImage()" class="remove-image-btn">
+          <span>✕</span> Eliminar imagen
+        </button>
+      </div>
+      
+      <div *ngIf="imageError" class="image-error">
+        {{ imageError }}
+      </div>
+    </div>
+    
+    <div class="skills-section">
+      <label>Habilidades:</label>
+      <div class="skill-form">
+        <div class="skill-input-row">
+          <div class="input-group">
+            <label class="small-label">Nombre de la habilidad:</label>
+            <input [(ngModel)]="skillInput.name" name="skillName" placeholder="Ej: Bola de fuego" />
+          </div>
+          <div class="input-group">
+            <label class="small-label">Elemento:</label>
+            <select [(ngModel)]="skillInput.elementType" name="elementType" class="element-select">
+              <option *ngFor="let element of elementTypes" [value]="element">{{ element }}</option>
+            </select>
+          </div>
+        </div>
+        
+        <div class="skill-input-row">
+          <div class="input-group">
+            <label class="small-label">Coste de maná:</label>
+            <input type="number" [(ngModel)]="skillInput.manaCost" name="manaCost" min="0" placeholder="0" />
+          </div>
+          <div class="input-group">
+            <label class="small-label">Tiempo de reutilización (seg):</label>
+            <input type="number" [(ngModel)]="skillInput.cooldown" name="cooldown" min="0" placeholder="0" />
+          </div>
+        </div>
+        
+        <div class="input-group full-width">
+          <label class="small-label">Descripción:</label>
+          <textarea [(ngModel)]="skillInput.description" name="skillDescription" 
+                   placeholder="Describe los efectos de la habilidad..." rows="3"></textarea>
+        </div>
+        
+        <button type="button" (click)="addSkill()" class="add-skill-btn">Agregar Habilidad</button>
+      </div>
+      
+      <ul class="skills-list">
+        <li *ngFor="let skill of character.skills; let i = index" class="skill-item">
+          <div class="skill-info" 
+               [title]="getSkillTooltip(skill)"
+               class="skill-tooltip">
+            <span class="skill-name">{{ skill.name }}</span>
+            <span class="skill-element" [attr.data-element]="skill.elementType">{{ skill.elementType }}</span>
+            <div class="skill-stats">
+              <span class="mana-cost">{{ skill.manaCost }} MP</span>
+              <span class="cooldown">{{ skill.cooldown }}s CD</span>
+            </div>
+          </div>
+          <button type="button" (click)="removeSkill(i)" class="remove-btn">Eliminar</button>
+        </li>
+      </ul>
+    </div>
+    
+    <div class="form-actions">
+      <button type="submit">{{ editing ? 'Actualizar' : 'Crear' }}</button>
+      <button type="button" routerLink="/">Cancelar</button>
+    </div>
+  </form>
+</div>
