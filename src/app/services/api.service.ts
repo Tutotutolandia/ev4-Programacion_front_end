@@ -76,6 +76,53 @@ export interface DragonBallCharacter {
   deletedAt: string | null;
 }
 
+export interface DnDCharacter {
+  index: string;
+  name: string;
+  size: string;
+  type: string;
+  subtype?: string;
+  alignment: string;
+  armor_class: number;
+  hit_points: number;
+  hit_dice: string;
+  speed: {
+    walk: string;
+  };
+  strength: number;
+  dexterity: number;
+  constitution: number;
+  intelligence: number;
+  wisdom: number;
+  charisma: number;
+  damage_resistances?: string[];
+  damage_immunities?: string[];
+  condition_immunities?: string[];
+  senses: {
+    [key: string]: string;
+  };
+  languages: string;
+  challenge_rating: number;
+  special_abilities?: Array<{
+    name: string;
+    desc: string;
+  }>;
+  actions?: Array<{
+    name: string;
+    desc: string;
+  }>;
+  url: string;
+}
+
+export interface DnDApiResponse {
+  count: number;
+  results: Array<{
+    index: string;
+    name: string;
+    url: string;
+  }>;
+}
+
 export interface UnifiedCharacter {
   id: string;
   name: string;
@@ -131,6 +178,14 @@ export class ApiService {
       icon: '🐉',
       baseUrl: 'https://dragonball-api.com/api/characters',
       enabled: true
+    },
+    {
+      id: 'dnd5e',
+      name: 'D&D 5e',
+      description: 'Criaturas y monstruos de Dungeons & Dragons',
+      icon: '🎲',
+      baseUrl: 'https://www.dnd5eapi.co/api/monsters',
+      enabled: true
     }
   ];
 
@@ -177,6 +232,23 @@ export class ApiService {
     'Angel': 'Luz',
     'God': 'Luz',
     'Frieza Race': 'Hielo'
+  };
+
+  private readonly DND_TYPE_TO_ELEMENT: { [key: string]: string } = {
+    'dragon': 'Fuego',
+    'elemental': 'Fuego', // Se especificará más según el subtipo
+    'fiend': 'Oscuridad',
+    'celestial': 'Luz',
+    'undead': 'Oscuridad',
+    'fey': 'Luz',
+    'aberration': 'Oscuridad',
+    'beast': 'Tierra',
+    'construct': 'Neutro',
+    'giant': 'Tierra',
+    'humanoid': 'Neutro',
+    'monstrosity': 'Tierra',
+    'ooze': 'Agua',
+    'plant': 'Tierra'
   };
   
   constructor() {}
@@ -230,6 +302,8 @@ export class ApiService {
         return this.getPokemonCharacters(page);
       case 'dragonball':
         return this.getDragonBallCharacters(page);
+      case 'dnd5e':
+        return this.getDnDCharacters(page);
       default:
         return { characters: [], error: `Fuente desconocida: ${sourceId}` };
     }
@@ -364,6 +438,57 @@ export class ApiService {
       return { characters, error: null };
     } catch (error) {
       return { characters: [], error: 'Error al cargar personajes de Dragon Ball' };
+    }
+  }
+
+  /**
+   * D&D 5e API
+   */
+  private async getDnDCharacters(page: number): Promise<{ characters: UnifiedCharacter[], error: string | null }> {
+    try {
+      const limit = 20;
+      const offset = (page - 1) * limit;
+      
+      // Primero obtenemos la lista de monstruos
+      const listResponse = await fetch(`https://www.dnd5eapi.co/api/monsters?limit=${limit}&skip=${offset}`);
+      
+      if (!listResponse.ok) {
+        throw new Error(`Error HTTP: ${listResponse.status}`);
+      }
+
+      const listData: DnDApiResponse = await listResponse.json();
+      
+      // Obtener detalles de cada monstruo
+      const monsterPromises = listData.results.map(monster => 
+        fetch(`https://www.dnd5eapi.co${monster.url}`).then(res => res.json())
+      );
+      
+      const monsterDetails: DnDCharacter[] = await Promise.all(monsterPromises);
+      
+      const characters: UnifiedCharacter[] = monsterDetails.map(monster => {
+        const abilities = this.generateDnDAbilities(monster);
+        
+        return {
+          id: `dnd-${monster.index}`,
+          name: monster.name,
+          image: this.getDnDMonsterImage(monster.name, monster.type),
+          series: 'D&D 5e',
+          description: `${monster.type} de tamaño ${monster.size}, ${monster.alignment}`,
+          type: monster.type,
+          abilities,
+          stats: {
+            power: Math.floor((monster.strength / 30) * 100),
+            speed: this.parseSpeedValue(monster.speed.walk),
+            defense: Math.floor((monster.armor_class / 25) * 100),
+            intelligence: Math.floor((monster.intelligence / 30) * 100)
+          },
+          originalData: monster
+        };
+      });
+
+      return { characters, error: null };
+    } catch (error) {
+      return { characters: [], error: 'Error al cargar personajes de D&D 5e' };
     }
   }
 
@@ -511,6 +636,112 @@ export class ApiService {
     return raceAbilities[race] || ['Técnica Básica'];
   }
 
+  private generateDnDAbilities(monster: DnDCharacter): string[] {
+    const abilities: string[] = [];
+    
+    // Habilidades especiales del monstruo
+    if (monster.special_abilities && monster.special_abilities.length > 0) {
+      abilities.push(...monster.special_abilities.slice(0, 2).map(ability => ability.name));
+    }
+    
+    // Acciones del monstruo
+    if (monster.actions && monster.actions.length > 0 && abilities.length < 3) {
+      const remainingSlots = 3 - abilities.length;
+      abilities.push(...monster.actions.slice(0, remainingSlots).map(action => action.name));
+    }
+    
+    // Habilidades basadas en el tipo
+    if (abilities.length < 3) {
+      const typeAbilities = this.getDnDTypeAbilities(monster.type);
+      const remainingSlots = 3 - abilities.length;
+      abilities.push(...typeAbilities.slice(0, remainingSlots));
+    }
+    
+    // Asegurar que tenemos exactamente 3 habilidades
+    while (abilities.length < 3) {
+      abilities.push('Ataque Natural');
+    }
+
+    return abilities.slice(0, 3);
+  }
+
+  private getDnDTypeAbilities(type: string): string[] {
+    const typeAbilities: { [key: string]: string[] } = {
+      'dragon': ['Aliento Dragón', 'Vuelo', 'Resistencia Mágica'],
+      'elemental': ['Control Elemental', 'Forma Elemental', 'Resistencia'],
+      'fiend': ['Resistencia al Fuego', 'Teletransporte', 'Miedo'],
+      'celestial': ['Curación', 'Luz Divina', 'Resistencia Radiante'],
+      'undead': ['Resistencia Necrótica', 'Drenar Vida', 'Inmunidad'],
+      'fey': ['Encantamiento', 'Invisibilidad', 'Teletransporte'],
+      'aberration': ['Telepatía', 'Distorsión Mental', 'Resistencia'],
+      'beast': ['Instintos Salvajes', 'Ataque Feroz', 'Supervivencia'],
+      'construct': ['Inmunidad a Veneno', 'Resistencia', 'Reparación'],
+      'giant': ['Fuerza Colosal', 'Lanzar Rocas', 'Pisotón'],
+      'humanoid': ['Habilidad Marcial', 'Táctica', 'Resistencia'],
+      'monstrosity': ['Ataque Múltiple', 'Habilidad Especial', 'Resistencia'],
+      'ooze': ['Forma Amorfa', 'Ácido', 'División'],
+      'plant': ['Enredaderas', 'Esporas', 'Regeneración']
+    };
+    
+    return typeAbilities[type] || ['Habilidad Natural', 'Supervivencia', 'Resistencia'];
+  }
+
+  private getDnDMonsterImage(name: string, type: string): string {
+    // Mapeo de nombres específicos a imágenes de Pexels
+    const specificImages: { [key: string]: string } = {
+      'Ancient Black Dragon': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Ancient Red Dragon': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Adult Dragon': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Beholder': 'https://images.pexels.com/photos/2693529/pexels-photo-2693529.jpeg',
+      'Lich': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Tarrasque': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Mind Flayer': 'https://images.pexels.com/photos/2693529/pexels-photo-2693529.jpeg',
+      'Owlbear': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Troll': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Orc': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Goblin': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Skeleton': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'Zombie': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg'
+    };
+    
+    // Si tenemos una imagen específica para este monstruo
+    if (specificImages[name]) {
+      return specificImages[name];
+    }
+    
+    // Imágenes por tipo de criatura
+    const typeImages: { [key: string]: string } = {
+      'dragon': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'elemental': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'fiend': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'celestial': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'undead': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'fey': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'aberration': 'https://images.pexels.com/photos/2693529/pexels-photo-2693529.jpeg',
+      'beast': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'construct': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'giant': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'humanoid': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'monstrosity': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'ooze': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg',
+      'plant': 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg'
+    };
+    
+    return typeImages[type] || 'https://images.pexels.com/photos/1670977/pexels-photo-1670977.jpeg';
+  }
+
+  private parseSpeedValue(speed: string): number {
+    if (!speed) return 50;
+    
+    const numericValue = speed.replace(/[^\d]/g, '');
+    const parsed = parseInt(numericValue);
+    
+    if (isNaN(parsed)) return 50;
+    
+    // Normalizar velocidad de pies a escala 1-100
+    return Math.min(Math.floor((parsed / 60) * 100), 100);
+  }
+
   /**
    * Búsqueda unificada en múltiples APIs
    */
@@ -553,6 +784,8 @@ export class ApiService {
         return this.searchPokemon(query);
       case 'dragonball':
         return this.searchDragonBall(query);
+      case 'dnd5e':
+        return this.searchDnD(query);
       default:
         return { characters: [], error: `Fuente desconocida: ${sourceId}` };
     }
@@ -652,6 +885,51 @@ export class ApiService {
           intelligence: Math.floor(Math.random() * 100) + 1
         },
         originalData: char
+      }));
+
+      return { characters, error: null };
+    } catch (error) {
+      return { characters: [], error: null };
+    }
+  }
+
+  private async searchDnD(query: string): Promise<{ characters: UnifiedCharacter[], error: string | null }> {
+    try {
+      // Buscar en la lista de monstruos
+      const response = await fetch(`https://www.dnd5eapi.co/api/monsters?name=${encodeURIComponent(query)}`);
+      
+      if (!response.ok) {
+        return { characters: [], error: null };
+      }
+
+      const data: DnDApiResponse = await response.json();
+      
+      if (data.results.length === 0) {
+        return { characters: [], error: null };
+      }
+      
+      // Obtener detalles de los primeros 5 resultados
+      const monsterPromises = data.results.slice(0, 5).map(monster => 
+        fetch(`https://www.dnd5eapi.co${monster.url}`).then(res => res.json())
+      );
+      
+      const monsterDetails: DnDCharacter[] = await Promise.all(monsterPromises);
+      
+      const characters = monsterDetails.map(monster => ({
+        id: `dnd-${monster.index}`,
+        name: monster.name,
+        image: this.getDnDMonsterImage(monster.name, monster.type),
+        series: 'D&D 5e',
+        description: `${monster.type} de tamaño ${monster.size}, ${monster.alignment}`,
+        type: monster.type,
+        abilities: this.generateDnDAbilities(monster),
+        stats: {
+          power: Math.floor((monster.strength / 30) * 100),
+          speed: this.parseSpeedValue(monster.speed.walk),
+          defense: Math.floor((monster.armor_class / 25) * 100),
+          intelligence: Math.floor((monster.intelligence / 30) * 100)
+        },
+        originalData: monster
       }));
 
       return { characters, error: null };

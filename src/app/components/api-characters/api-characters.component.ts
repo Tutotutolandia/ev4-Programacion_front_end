@@ -165,6 +165,22 @@ export class ApiCharactersComponent implements OnInit {
         'Angel': 'Bardo',
         'God': 'Paladín',
         'Frieza Race': 'Pícaro'
+      },
+      'D&D 5e': {
+        'dragon': 'Paladín',
+        'elemental': 'Mago',
+        'fiend': 'Bárbaro',
+        'celestial': 'Sacerdote',
+        'undead': 'Pícaro',
+        'fey': 'Bardo',
+        'aberration': 'Mago',
+        'beast': 'Cazador',
+        'construct': 'Paladín',
+        'giant': 'Bárbaro',
+        'humanoid': 'Guerrero',
+        'monstrosity': 'Bárbaro',
+        'ooze': 'Mago',
+        'plant': 'Cazador'
       }
     };
 
@@ -218,7 +234,8 @@ export class ApiCharactersComponent implements OnInit {
 
     const seriesElements: { [key: string]: string[] } = {
       'Rick and Morty': ['Rayo', 'Luz', 'Oscuridad'],
-      'Dragon Ball': ['Fuego', 'Rayo', 'Luz']
+      'Dragon Ball': ['Fuego', 'Rayo', 'Luz'],
+      'D&D 5e': ['Fuego', 'Agua', 'Tierra', 'Aire', 'Luz', 'Oscuridad']
     };
 
     const skills = abilities.slice(0, 3).map((ability, index) => {
@@ -395,7 +412,8 @@ export class ApiCharactersComponent implements OnInit {
     const colors: { [key: string]: string } = {
       'Rick and Morty': '#00b4d8',
       'Pokémon': '#ffcb05',
-      'Dragon Ball': '#ff6b35'
+      'Dragon Ball': '#ff6b35',
+      'D&D 5e': '#8b5a2b'
     };
     return colors[series] || '#6b7280';
   }
@@ -404,7 +422,8 @@ export class ApiCharactersComponent implements OnInit {
     const icons: { [key: string]: string } = {
       'Rick and Morty': '🛸',
       'Pokémon': '⚡',
-      'Dragon Ball': '🐉'
+      'Dragon Ball': '🐉',
+      'D&D 5e': '🎲'
     };
     return icons[series] || '🎭';
   }
